@@ -1,0 +1,23 @@
+PROGRAM test
+
+CALL outer()
+
+CONTAINS
+SUBROUTINE OUTER()
+    INTEGER::k
+
+    k=2
+
+    CALL INNER(k)
+
+    WRITE(*,*) k
+END SUBROUTINE
+
+SUBROUTINE INNER(j)
+    INTEGER::j
+    
+    j=j+1
+
+END SUBROUTINE
+
+END PROGRAM
