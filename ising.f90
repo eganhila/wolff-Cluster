@@ -1,6 +1,6 @@
 PROGRAM ising
 
-INTEGER,PARAMETER:: SideN=10 !Length of the sides of the lattice
+INTEGER,PARAMETER:: SideN=30 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
@@ -17,19 +17,18 @@ REAL :: temp=5  !Temperature to run simulation at
 
 !Initialize----------------------------------------------
 CALL assignInitialSpins(LatSpin)
+CALL Random()
 
 curMag = 1.0
 
 !Run Main------------------------------------------------
-DO i = 1,1
-    initialSite = 1
+DO i = 1,2
+    initialSite = 165
 
     
     flip = LatSpin(initialSite)
     flipSpins = wolffCluster(initialSite)     !Build the cluster
     LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
-  
-
 
     curMag = getCurMag(flipSpins,flip,curMag)      
     CALL UpdateAverages(curMag)          !Update the averages based on flips
@@ -39,9 +38,10 @@ END DO
 
 
 !Testing-------------------------------------------------
+
 DO i = 0, SideN-1
     DO l=1, SideN
-        WRITE(*,"(1x,i4)",advance="no") LatSpin(i*4+l)
+        WRITE(*,"(1x,i4)",advance="no") LatSpin(i*SideN+l)
     END DO
     WRITE(*,*)
 END DO
@@ -89,15 +89,19 @@ FUNCTION wolffCluster( initSite)
     !Main loop to build cluster
     j=1
 
-    !DO j=1,1
-    !DO WHILE (j.LT.QueuePos-1)
-         
-        !j=j+1
+
+    DO WHILE (j.LT.QueuePos)
+        
 
         curSite = Queue(j)
         CALL tryAddSite(curSite, Queue,QueuePos,wolffCluster,inQueue, initSpin)
 
-    !END DO
+        j=j+1
+
+
+    END DO
+
+
 
     return  !Returns cluster -1 to flip, 1 to not flip
 END FUNCTION
@@ -111,7 +115,7 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
     INTEGER :: qPos !Position of last element added to queue (tail)
     INTEGER :: k    !Loop var to iterate through neighbours
     INTEGER, DIMENSION(4) :: neighbours !Array of neighbours of site
-    INTEGER, DIMENSION(:) :: qsites !Current queue
+    INTEGER, DIMENSION(:) :: qsites !Currentqueue
     INTEGER, DIMENSION(:) :: inQ    !Array 0 if site not in queue yet
     INTEGER, DIMENSION(:) :: wCluster   !Current cluster
     REAL*8 :: randX
@@ -119,7 +123,7 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
     REAL*8 :: J = 1.0d0
 
     CALL RANDOM_NUMBER(randX)
-    prob =1 !1.0-EXP(-2.0d0*J/temp)
+    prob =.57 !1.0-EXP(-2.0d0*J/temp)
 
     IF ((LatSpin(site).EQ.iSpin).AND.(randX.LT.prob)) THEN   
 
@@ -153,8 +157,8 @@ FUNCTION getNeighbours(site)
 
     neighbours(1) = MODULO(site + SideN,TotalN +1) + FLOOR(REAL(site+SideN-1)/TotalN)
     neighbours(2) = MODULO(site - SideN + TotalN,TotalN +1)+ CEILING(REAL(site-SideN)/TotalN)
-    neighbours(3) = (site + 1) - 4*(CEILING(REAL(site+1)/SideN)-CEILING(REAL(site)/SideN))
-    neighbours(4) = (site - 1) - 4*(CEILING(REAL(site-1)/SideN)-CEILING(REAL(site)/SideN))
+    neighbours(3) = (site + 1) - SideN*(CEILING(REAL(site+1)/SideN)-CEILING(REAL(site)/SideN))
+    neighbours(4) = (site - 1) - SideN*(CEILING(REAL(site-1)/SideN)-CEILING(REAL(site)/SideN))
 
     getNeighbours = neighbours
 
