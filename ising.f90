@@ -1,6 +1,6 @@
 PROGRAM ising
 
-INTEGER,PARAMETER:: SideN=100 !Length of the sides of the lattice
+INTEGER,PARAMETER:: SideN=10 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
@@ -22,7 +22,7 @@ curMag = 1.0
 
 !Run Main------------------------------------------------
 DO i = 1,1
-    initialSite = 10
+    initialSite = 1
 
     
     flip = LatSpin(initialSite)
@@ -84,11 +84,12 @@ FUNCTION wolffCluster( initSite)
     wolffCluster = 1
 
     initSpin = latSpin(initSite)
+    wolffCluster(initSite) = -1
 
     !Main loop to build cluster
-    j=0
+    j=1
 
-    DO j=1,1
+    !DO j=1,1
     !DO WHILE (j.LT.QueuePos-1)
          
         !j=j+1
@@ -96,7 +97,7 @@ FUNCTION wolffCluster( initSite)
         curSite = Queue(j)
         CALL tryAddSite(curSite, Queue,QueuePos,wolffCluster,inQueue, initSpin)
 
-    END DO
+    !END DO
 
     return  !Returns cluster -1 to flip, 1 to not flip
 END FUNCTION
