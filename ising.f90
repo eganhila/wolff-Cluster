@@ -2,18 +2,20 @@ PROGRAM ising
 
 INTEGER,PARAMETER:: SideN=30 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
+INTEGER,PARAMETER:: iterLen = 1
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
 INTEGER,DIMENSION(TotalN):: flipSpins !Holds -1 for spins to flip, 1 to not
 
 REAL*8 :: curMag    !Current magnetization of system
+REAL*8,DIMENSION(iterLen) :: magDat
 
 INTEGER :: flip !1 if cluster is flipped up, -1 if cluster is flipped to down
 INTEGER :: initialSite !Location of site that cluster is built around
 
 INTEGER:: i,l !Iterator for main loop
-REAL :: temp=5  !Temperature to run simulation at
-
+REAL :: temp=.1  !Temperature to run simulation at
+REAL*8 :: randInit
 
 !Initialize----------------------------------------------
 CALL assignInitialSpins(LatSpin)
@@ -22,8 +24,9 @@ CALL Random()
 curMag = 1.0
 
 !Run Main------------------------------------------------
-DO i = 1,2
-    initialSite = 165
+DO i = 1,iterLen
+    CALL RANDOM_NUMBER(randInit)
+    initialSite =MODULO(CEILING(1000*(randInit+1)*TotalN),TotalN)
 
     
     flip = LatSpin(initialSite)
@@ -31,8 +34,7 @@ DO i = 1,2
     LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
 
     curMag = getCurMag(flipSpins,flip,curMag)      
-    CALL UpdateAverages(curMag)          !Update the averages based on flips
-
+    CALL UpdateAverages(curMag,magDat,i)          !Update the averages based on flips
 
 END DO
 
@@ -46,8 +48,11 @@ DO i = 0, SideN-1
     WRITE(*,*)
 END DO
 
-!WRITE(*,*) curMag
-
+OPEN(unit=27,status='replace',file='mag.dat')
+    DO i = 1, iterLen
+        WRITE(27,*) magDat(i)
+    END DO
+CLOSE(27)
 
 !Subroutines---------------------------------------------
 CONTAINS
@@ -123,12 +128,13 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
     REAL*8 :: J = 1.0d0
 
     CALL RANDOM_NUMBER(randX)
-    prob =.57 !1.0-EXP(-2.0d0*J/temp)
+    neighbours = getNeighbours(site)    
+    prob =1.0-EXP((-LocalEn(site,neighbours,wCluster))/temp)
 
     IF ((LatSpin(site).EQ.iSpin).AND.(randX.LT.prob)) THEN   
 
         wCluster(site) = -1     !Adds site to cluster
-        neighbours = getNeighbours(site)    
+
         
         !Loop to add neighbours to queue
         DO k=1,4
@@ -144,9 +150,12 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
 END SUBROUTINE
 
 !Updates averages based on sites that were flipped
-SUBROUTINE UpdateAverages(curM)
+SUBROUTINE UpdateAverages(curM, mDat,it)
+    INTEGER :: it
     REAL*8 :: curM
+    REAL*8,DIMENSION(:) :: mDat
 
+    mDat(it) = curM
 END SUBROUTINE
 
 !Gets all 4 neighbours of a given site
@@ -163,6 +172,21 @@ FUNCTION getNeighbours(site)
     getNeighbours = neighbours
 
     return
+END FUNCTION
+
+FUNCTION localEn(initSite, siteNeighbours,curFlips)
+    INTEGER :: initSite
+    INTEGER,DIMENSION(4) :: siteNeighbours
+    INTEGER,DIMENSION(:) :: curFlips
+    INTEGER,DIMENSION(4) :: relevantSpins
+    INTEGER :: localEn
+
+    relevantSpins(:) = LatSpin(siteNeighbours(:))*curFlips(siteNeighbours(:))
+    initSpin = LatSpin(initSite)
+
+    localEn = 2.0*initSpin*(SUM(relevantSpins(:)))
+
+
 END FUNCTION
 
 FUNCTION getCurMag(flips,flip,prevMag)
