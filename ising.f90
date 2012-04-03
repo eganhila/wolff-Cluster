@@ -2,56 +2,63 @@ PROGRAM ising
 
 INTEGER,PARAMETER:: SideN=30 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
-INTEGER,PARAMETER:: iterLen = 1000
-INTEGER,PARAMETER:: equilLen = 500
+INTEGER,PARAMETER:: iterLen = 3000 !Length time averaging magnetization over
+INTEGER,PARAMETER:: equilLen = 2000 !Length time before averaging
+INTEGER,PARAMETER:: numTemps = 400 !Number of temps to iterate over
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
 INTEGER,DIMENSION(TotalN):: flipSpins !Holds -1 for spins to flip, 1 to not
 
 REAL*8 :: curMag    !Current magnetization of system
-REAL*8,DIMENSION(iterLen) :: magDat
+REAL*8,DIMENSION(iterLen) :: magDat !All curMag over iterLen period
 
 INTEGER :: flip !1 if cluster is flipped up, -1 if cluster is flipped to down
 INTEGER :: initialSite !Location of site that cluster is built around
 
+INTEGER:: tempIter !Iterator for temperature loop
 INTEGER:: i,l !Iterator for main loop
-REAL*8 :: temp  !Temperature to run simulation at
-REAL*8 :: randInit
+REAL*8 :: temp=1.6  !Temperature to run simulation at
+REAL*8 :: randInit !Random number for picking site
 
-!Initialize----------------------------------------------
-CALL assignInitialSpins(LatSpin)
+
 CALL Random()
-CALL TemperatureInput(temp)
 
+DO tempIter =1, numTemps
 
+    !Initialize----------------------------------------------
+    CALL initialize()
 
-!Run Equilibration------------------------------------------------
-
-DO i = 1,equilLen
-    CALL RANDOM_NUMBER(randInit)
-    initialSite =MODULO(CEILING(1000*(randInit+1)*TotalN),TotalN)
+    !Run Equilibration------------------------------------------------
+    DO i = 1,equilLen
+        CALL RANDOM_NUMBER(randInit)
+        initialSite =MODULO(CEILING(1000*(randInit)*TotalN),TotalN)+1
     
-    flip = -LatSpin(initialSite)
-    flipSpins = wolffCluster(initialSite)     !Build the cluster
-    LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
+        flip = -LatSpin(initialSite)
+        flipSpins = wolffCluster(initialSite)     !Build the cluster
+        LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
+
+    END DO
+
+    !Run Main---------------------------------------------------------
+    curMag = REAL(SUM(LatSpin))/TotalN
+    DO i = 1,iterLen
+        CALL RANDOM_NUMBER(randInit)
+        initialSite =MODULO(CEILING(1000*(randInit)*TotalN),TotalN)+1
+
+    
+        flip = -LatSpin(initialSite)
+        flipSpins = wolffCluster(initialSite)     !Build the cluster
+        LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
+
+        curMag = getCurMag(flipSpins,flip,curMag)      
+        CALL UpdateAverages(curMag,magDat,i)          !Update the averages based on flips
+    END DO
+
+    Call WriteAverage(magDat,"mag.dat")
+    CALL WriteVariance(magDat,"sus.dat")
 
 END DO
-
-!Run Main---------------------------------------------------------
-curMag = REAL(SUM(LatSpin))/TotalN
-DO i = 1,iterLen
-    CALL RANDOM_NUMBER(randInit)
-    initialSite =MODULO(CEILING(1000*(randInit+1)*TotalN),TotalN)
-
-    
-    flip = -LatSpin(initialSite)
-    flipSpins = wolffCluster(initialSite)     !Build the cluster
-    LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
-
-    curMag = getCurMag(flipSpins,flip,curMag)      
-    CALL UpdateAverages(curMag,magDat,i)          !Update the averages based on flips
-
-END DO
+!Run Outputs-------------------------------------------------------
 
 
 !Testing-------------------------------------------------
@@ -63,14 +70,23 @@ END DO
 !    WRITE(*,*)
 !END DO
 
-OPEN(unit=27,status='replace',file='mag.dat')
-    DO i = 1, iterLen
-        WRITE(27,*) ABS(magDat(i))
-    END DO
-CLOSE(27)
+!OPEN(unit=27,status='replace',file='mag.dat')
+!    DO i = 1, iterLen
+!        WRITE(27,*) ABS(magDat(i))
+!    END DO
+!CLOSE(27)
 
 !Subroutines---------------------------------------------
 CONTAINS
+
+SUBROUTINE initialize()
+    IMPLICIT NONE
+    
+    CALL assignInitialSpins(LatSpin)
+    temp = tempIter/100.0  !Comment me for one temp
+    magDat = 0
+
+END SUBROUTINE
 
 !Sets up initial spin configuration, currently all up
 SUBROUTINE assignInitialSpins(lattice)
@@ -91,7 +107,7 @@ SUBROUTINE UpdateAverages(curM, mDat,it)
     REAL*8 :: curM
     REAL*8,DIMENSION(:) :: mDat
 
-    mDat(it) = curM
+    mDat(it) = ABS(curM)
 END SUBROUTINE
 
 !Gets all 4 neighbours of a given site
@@ -147,10 +163,38 @@ SUBROUTINE random
 
 END SUBROUTINE
 
+SUBROUTINE WriteVariance(dataArray,fName)
+    IMPLICIT NONE
+    REAL *8, DIMENSION(:) :: dataArray
+    CHARACTER(LEN=*) :: fName
+    REAL *8 :: avg, avg2
+    REAL *8 :: variance
+
+    avg2 = SUM(dataArray**2)/iterLen
+    avg = SUM(dataArray)/iterLen
+    variance = avg2-avg**2
+
+
+    OPEN(UNIT=26,file=fName,POSITION="APPEND")
+        WRITE(26,*) temp, variance
+    CLOSE(26)
+
+END SUBROUTINE
+
+SUBROUTINE WriteAverage(dataArray,fName)
+    IMPLICIT NONE
+    REAL*8,DIMENSION(:) :: dataArray
+    CHARACTER(LEN=*) :: fName
+
+    OPEN(UNIT=26,file=fName,POSITION="APPEND")
+        WRITE(26,*) temp,  SUM(dataArray)/iterLen
+    CLOSE(26)
+END SUBROUTINE
+
 SUBROUTINE TemperatureInput(temperature)
     IMPLICIT NONE
     REAL*8 :: temperature
-
+    
     READ(*,*) temperature
 
 END SUBROUTINE
@@ -168,7 +212,7 @@ FUNCTION wolffCluster( initSite)
     INTEGER,DIMENSION(totalN) :: inQueue    !0 if site not in queue, 1 if it is
     INTEGER,DIMENSION(totalN) :: wolffCluster   !Current cluster of spins 
 
-    INTEGER,DIMENSION(totalN*4) :: Queue    !Queue of sites to try adding
+    INTEGER,DIMENSION(totalN*5) :: Queue    !Queue of sites to try adding
     INTEGER :: QueuePos     !Site of last added queue element (tail)
 
     !Initializing Queue
@@ -189,14 +233,10 @@ FUNCTION wolffCluster( initSite)
 
 
     DO WHILE (j.LT.QueuePos)
-        
-
         curSite = Queue(j)
         CALL tryAddSite(curSite, Queue,QueuePos,wolffCluster,inQueue, initSpin)
 
         j=j+1
-
-
     END DO
 
 
@@ -222,7 +262,7 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
     CALL RANDOM_NUMBER(randX)
 
     neighbours = getNeighbours(site)    
-    prob = 1.0-EXP(-2*J/temp)
+    prob = 1.0-EXP(-J/temp)
 
     IF ((LatSpin(site).EQ.iSpin).AND.(randX.LT.prob)) THEN   
 
