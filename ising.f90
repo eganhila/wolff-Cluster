@@ -11,6 +11,9 @@ INTEGER,DIMENSION(TotalN):: flipSpins !Holds -1 for spins to flip, 1 to not
 
 REAL*8 :: curMag    !Current magnetization of system
 REAL*8,DIMENSION(iterLen) :: magDat !All curMag over iterLen period
+REAL*8 :: curEn     !Current energy of system
+REAL*8,DIMENSION(iterLen) :: enDat
+
 
 INTEGER :: flip !1 if cluster is flipped up, -1 if cluster is flipped to down
 INTEGER :: initialSite !Location of site that cluster is built around
@@ -50,12 +53,17 @@ DO tempIter =1, numTemps
         flipSpins = wolffCluster(initialSite)     !Build the cluster
         LatSpin = LatSpin*flipSpins             !Flip spins of the cluster
 
-        curMag = getCurMag(flipSpins,flip,curMag)      
-        CALL UpdateAverages(curMag,magDat,i)          !Update the averages based on flips
+        curMag = getCurMag(flipSpins,flip,curMag)
+        curEn = getCurEn()
+
+        CALL UpdateAverages(curMag,magDat,i)
+        CALL UpdateAverages(curEn,enDat,i)
     END DO
 
     Call WriteAverage(magDat,"mag.dat")
     CALL WriteVariance(magDat,"sus.dat")
+    CALL WriteAverage(EnDat, "en.dat")
+    CALL WriteVariance(EnDat, "specHeat.dat")
 
 END DO
 !Run Outputs-------------------------------------------------------
@@ -124,6 +132,20 @@ FUNCTION getNeighbours(site)
     getNeighbours = neighbours
 
     return
+END FUNCTION
+
+FUNCTION getCurEn()
+    IMPLICIT NONE
+    INTEGER :: site
+    REAL*8 :: getCurEn
+
+    getCurEn=0
+
+    DO site = 1,TotalN
+        getCurEn = getCurEn-latSpin(site)*SUM(latSpin(getNeighbours(site)))
+    END DO
+
+    RETURN
 END FUNCTION
 
 FUNCTION getCurMag(flips,flip,prevMag)
