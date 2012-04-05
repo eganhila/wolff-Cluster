@@ -2,9 +2,15 @@ PROGRAM ising
 
 INTEGER,PARAMETER:: SideN=30 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
-INTEGER,PARAMETER:: iterLen = 3000 !Length time averaging magnetization over
-INTEGER,PARAMETER:: equilLen = 2000 !Length time before averaging
-INTEGER,PARAMETER:: numTemps = 400 !Number of temps to iterate over
+INTEGER,PARAMETER:: iterLen = 2000 !Length time averaging magnetization over
+INTEGER,PARAMETER:: equilLen = 2000!3000 !Length time before averaging
+
+
+INTEGER,PARAMETER:: numTemps = 100 !Number of temps to iterate over
+REAL*8, PARAMETER:: startTemp=1.61
+REAL*8, PARAMETER:: endTemp=1.75
+REAL*8 :: tempStep = (endTemp-startTemp)/numTemps
+REAL*8 :: temp  !Temperature to run simulation at
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
 INTEGER,DIMENSION(TotalN):: flipSpins !Holds -1 for spins to flip, 1 to not
@@ -14,17 +20,16 @@ REAL*8,DIMENSION(iterLen) :: magDat !All curMag over iterLen period
 REAL*8 :: curEn     !Current energy of system
 REAL*8,DIMENSION(iterLen) :: enDat
 
-
 INTEGER :: flip !1 if cluster is flipped up, -1 if cluster is flipped to down
 INTEGER :: initialSite !Location of site that cluster is built around
 
 INTEGER:: tempIter !Iterator for temperature loop
 INTEGER:: i,l !Iterator for main loop
-REAL*8 :: temp=1.6  !Temperature to run simulation at
 REAL*8 :: randInit !Random number for picking site
 
 
 CALL Random()
+temp= startTemp
 
 DO tempIter =1, numTemps
 
@@ -56,14 +61,14 @@ DO tempIter =1, numTemps
         curMag = getCurMag(flipSpins,flip,curMag)
         curEn = getCurEn()
 
-        CALL UpdateAverages(curMag,magDat,i)
+        CALL UpdateAverages(ABS(curMag),magDat,i)
         CALL UpdateAverages(curEn,enDat,i)
     END DO
 
     Call WriteAverage(magDat,"mag.dat")
     CALL WriteVariance(magDat,"sus.dat")
     CALL WriteAverage(EnDat, "en.dat")
-    CALL WriteVariance(EnDat, "specHeat.dat")
+    CALL WriteVariance(EnDat, "Cv.dat")
 
 END DO
 !Run Outputs-------------------------------------------------------
@@ -91,7 +96,7 @@ SUBROUTINE initialize()
     IMPLICIT NONE
     
     CALL assignInitialSpins(LatSpin)
-    temp = tempIter/100.0  !Comment me for one temp
+    temp = temp+tempStep  !Comment me for one temp
     magDat = 0
 
 END SUBROUTINE
@@ -110,12 +115,12 @@ SUBROUTINE assignInitialSpins(lattice)
 END SUBROUTINE
 
 !Updates averages based on sites that were flipped
-SUBROUTINE UpdateAverages(curM, mDat,it)
+SUBROUTINE UpdateAverages(curVal, dat,it)
     INTEGER :: it
-    REAL*8 :: curM
-    REAL*8,DIMENSION(:) :: mDat
+    REAL*8 :: curVal
+    REAL*8,DIMENSION(:) :: dat
 
-    mDat(it) = ABS(curM)
+    dat(it) = curVal
 END SUBROUTINE
 
 !Gets all 4 neighbours of a given site
