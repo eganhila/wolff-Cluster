@@ -1,16 +1,18 @@
 PROGRAM ising
 
-INTEGER,PARAMETER:: SideN=30 !Length of the sides of the lattice
-INTEGER,PARAMETER:: TotalN = SideN**2 !Total sites in the lattice
+
 INTEGER,PARAMETER:: iterLen = 2000 !Length time averaging magnetization over
-INTEGER,PARAMETER:: equilLen = 2000!3000 !Length time before averaging
+INTEGER,PARAMETER:: equilLen = 100!3000!3000 !Length time before averaging
+INTEGER,PARAMETER:: SideN = 20 !Length of the sides of the lattice
+INTEGER,PARAMETER:: TotalN =SideN**2!Total sites in the lattice
+CHARACTER(LEN=*),PARAMETER:: fileName = "all_400_detailed.dat"
 
-
-INTEGER,PARAMETER:: numTemps = 100 !Number of temps to iterate over
-REAL*8, PARAMETER:: startTemp=1.61
-REAL*8, PARAMETER:: endTemp=1.75
+INTEGER,PARAMETER:: numTemps = 100!400!000 !Number of temps to iterate over
+REAL*8, PARAMETER:: startTemp=0
+REAL*8, PARAMETER:: endTemp=5!1.78
 REAL*8 :: tempStep = (endTemp-startTemp)/numTemps
 REAL*8 :: temp  !Temperature to run simulation at
+
 
 INTEGER,DIMENSION(TotalN):: LatSpin !Holds the spin of each site on lattice
 INTEGER,DIMENSION(TotalN):: flipSpins !Holds -1 for spins to flip, 1 to not
@@ -27,9 +29,10 @@ INTEGER:: tempIter !Iterator for temperature loop
 INTEGER:: i,l !Iterator for main loop
 REAL*8 :: randInit !Random number for picking site
 
+!--------------------------------------------------------------------------------
 
 CALL Random()
-temp= startTemp
+temp=startTemp
 
 DO tempIter =1, numTemps
 
@@ -65,12 +68,14 @@ DO tempIter =1, numTemps
         CALL UpdateAverages(curEn,enDat,i)
     END DO
 
-    Call WriteAverage(magDat,"mag.dat")
-    CALL WriteVariance(magDat,"sus.dat")
-    CALL WriteAverage(EnDat, "en.dat")
-    CALL WriteVariance(EnDat, "Cv.dat")
-
+    !Call WriteAverage(magDat,"mag.dat")
+    !CALL WriteVariance(magDat,"sus.dat")
+    !CALL WriteAverage(EnDat, "en.dat")
+    !CALL WriteVariance(EnDat, "Cv.dat")
+    CALL writeAll(magDat,EnDat,fileName)
 END DO
+
+
 !Run Outputs-------------------------------------------------------
 
 
@@ -164,7 +169,7 @@ FUNCTION getCurMag(flips,flip,prevMag)
     flips = -FLOOR(flips/2.0)
     numFlips = SUM(flips)
 
-    getCurMag = prevMag + 2.0*flip*numFlips/REAL(TotalN)
+    getCurMag = prevMag + 2.0*flip*numFlips/TotalN
     return 
 
 END FUNCTION
@@ -186,6 +191,28 @@ SUBROUTINE random
 
     OPEN(unit=26,status='replace',file='seed')
         WRITE(26,*) CEILING(1000*x)
+    CLOSE(26)
+
+END SUBROUTINE
+
+SUBROUTINE writeAll(mag,en,fName)
+    IMPLICIT NONE
+    CHARACTER(LEN=*) :: fName
+    REAL*8, DIMENSION(:) :: mag
+    REAL*8, DIMENSION(:) :: en
+    REAL*8 :: avgMag, avgMag2, varMag
+    REAL*8 :: avgEn, avgEn2, varEn
+
+    avgMag2 = SUM(mag**2)/iterLen
+    avgMag = SUM(mag)/iterLen
+    varMag = avgMag2-avgMag**2
+
+    avgEn2 = SUM(en**2)/iterLen
+    avgEn = SUM(en)/iterLen
+    varEn = avgEn2-avgEn**2
+
+    OPEN(UNIT=26,file=fName,POSITION="APPEND")
+        WRITE(26,*) temp,avgMag, varMag, avgEn, varEn
     CLOSE(26)
 
 END SUBROUTINE
@@ -261,8 +288,9 @@ FUNCTION wolffCluster( initSite)
 
     DO WHILE (j.LT.QueuePos)
         curSite = Queue(j)
-        CALL tryAddSite(curSite, Queue,QueuePos,wolffCluster,inQueue, initSpin)
-
+        IF (wolffCluster(curSite).EQ.(1)) THEN
+            CALL tryAddSite(curSite, Queue,QueuePos,wolffCluster,inQueue, initSpin)
+        END IF
         j=j+1
     END DO
 
@@ -289,7 +317,7 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
     CALL RANDOM_NUMBER(randX)
 
     neighbours = getNeighbours(site)    
-    prob = 1.0-EXP(-J/temp)
+    prob = 1.0-EXP(-2.0d0*J/temp)
 
     IF ((LatSpin(site).EQ.iSpin).AND.(randX.LT.prob)) THEN   
 
