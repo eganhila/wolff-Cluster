@@ -1,15 +1,15 @@
 PROGRAM ising
 
 
-INTEGER,PARAMETER:: iterLen = 2000 !Length time averaging magnetization over
-INTEGER,PARAMETER:: equilLen = 100!3000!3000 !Length time before averaging
-INTEGER,PARAMETER:: SideN = 20 !Length of the sides of the lattice
+INTEGER,PARAMETER:: iterLen = 0!1000 !Length time averaging magnetization over
+INTEGER,PARAMETER:: equilLen = 1!3000!3000 !Length time before averaging
+INTEGER,PARAMETER:: SideN = 50 !Length of the sides of the lattice
 INTEGER,PARAMETER:: TotalN =SideN**2!Total sites in the lattice
-CHARACTER(LEN=*),PARAMETER:: fileName = "all_400_detailed.dat"
+CHARACTER(LEN=*),PARAMETER:: fileName = "averaging_b_1.dat"
 
-INTEGER,PARAMETER:: numTemps = 100!400!000 !Number of temps to iterate over
-REAL*8, PARAMETER:: startTemp=0
-REAL*8, PARAMETER:: endTemp=5!1.78
+INTEGER,PARAMETER:: numTemps = 1!400!000 !Number of temps to iterate over
+REAL*8, PARAMETER:: startTemp=1.5
+REAL*8, PARAMETER:: endTemp=1.5!1.78
 REAL*8 :: tempStep = (endTemp-startTemp)/numTemps
 REAL*8 :: temp  !Temperature to run simulation at
 
@@ -72,7 +72,7 @@ DO tempIter =1, numTemps
     !CALL WriteVariance(magDat,"sus.dat")
     !CALL WriteAverage(EnDat, "en.dat")
     !CALL WriteVariance(EnDat, "Cv.dat")
-    CALL writeAll(magDat,EnDat,fileName)
+    !CALL writeAll(magDat,EnDat,fileName)
 END DO
 
 
@@ -81,12 +81,12 @@ END DO
 
 !Testing-------------------------------------------------
 
-!DO i = 0, SideN-1
-!    DO l=1, SideN
-!        WRITE(*,"(1x,i4)",advance="no") LatSpin(i*SideN+l)
-!    END DO
-!    WRITE(*,*)
-!END DO
+DO i = 0, SideN-1
+    DO l=1, SideN
+        WRITE(*,"(1x,i4)",advance="no") LatSpin(i*SideN+l)
+    END DO
+    WRITE(*,*)
+END DO
 
 !OPEN(unit=27,status='replace',file='mag.dat')
 !    DO i = 1, iterLen
@@ -321,7 +321,7 @@ SUBROUTINE tryAddSite(site, qSites,qPos,wCluster,inQ,iSpin)
 
     IF ((LatSpin(site).EQ.iSpin).AND.(randX.LT.prob)) THEN   
 
-        wCluster(site) = -1     !Adds site to cluster
+        wCluster(site) = -2     !Adds site to cluster
 
         
         !Loop to add neighbours to queue

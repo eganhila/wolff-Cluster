@@ -1,0 +1,6 @@
+#!/bin/sh
+
+gfortran ising.f90
+./a.out
+cat mag.dat
+rm mag.dat

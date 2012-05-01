@@ -1,0 +1,7 @@
+#!/bin/sh
+
+rm *.dat
+gfortran ising.f90
+./a.out>spins.dat
+./drawCluster.m
+display spinPlot.png
