@@ -1,5 +1,5 @@
 PROGRAM ising
-
+!Testing remote push
 
 INTEGER,PARAMETER:: iterLen = 0!1000 !Length time averaging magnetization over
 INTEGER,PARAMETER:: equilLen = 1!3000!3000 !Length time before averaging
